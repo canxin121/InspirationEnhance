@@ -8,6 +8,7 @@
 
 <p>
   <a href="https://github.com/canxin121/InspirationEnhance/releases">版本发布</a> ·
+  <a href="#界面预览">界面预览</a> ·
   <a href="#安装与启用">安装与启用</a> ·
   <a href="https://github.com/canxin121/InspirationEnhance/issues">反馈问题</a>
 </p>
@@ -30,6 +31,37 @@
 | **最近任务** | 使用 Flyme 风格任务卡片与清理动效，查看内存占用，强行停止应用。 |
 | **灵感识屏** | 提取文字、图片和视频；长按内容，快捷复制、保存或分享。 |
 | **其他功能** | 轻点状态栏，让当前页面回到顶部。 |
+
+## 界面预览
+
+点击截图查看原图。
+
+<table>
+  <tr>
+    <td colspan="2" align="center" valign="top">
+      <strong>应用首页</strong><br><br>
+      <a href="docs/images/screenshots/home.jpg"><img src="docs/images/screenshots/home.jpg" width="240" alt="灵感增强应用首页与功能入口"></a>
+    </td>
+    <td colspan="2" align="center" valign="top">
+      <strong>边角轮盘</strong><br><br>
+      <a href="docs/images/screenshots/corner-wheel.jpg"><img src="docs/images/screenshots/corner-wheel.jpg" width="240" alt="边角轮盘中的应用图标与快捷入口"></a>
+    </td>
+    <td colspan="2" align="center" valign="top">
+      <strong>桌面索引</strong><br><br>
+      <a href="docs/images/screenshots/app-index.jpg"><img src="docs/images/screenshots/app-index.jpg" width="240" alt="按字母查找应用的桌面侧滑索引"></a>
+    </td>
+  </tr>
+  <tr>
+    <td colspan="3" align="center" valign="top">
+      <strong>最近任务</strong><br><br>
+      <a href="docs/images/screenshots/recents.jpg"><img src="docs/images/screenshots/recents.jpg" width="240" alt="最近任务卡片、清理按钮与内存占用"></a>
+    </td>
+    <td colspan="3" align="center" valign="top">
+      <strong>灵感识屏</strong><br><br>
+      <a href="docs/images/screenshots/screen-recognition.jpg"><img src="docs/images/screenshots/screen-recognition.jpg" width="240" alt="灵感识屏的文字识别结果与提取工具栏"></a>
+    </td>
+  </tr>
+</table>
 
 ## 安装与启用
 
