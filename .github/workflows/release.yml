@@ -1,0 +1,200 @@
+name: Build and release 灵感增强
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag
+        required: true
+        default: v0.1.0
+        type: string
+      source_commit:
+        description: Full 40-character commit from the private source repository
+        required: true
+        type: string
+      version_code:
+        description: Expected Android installation version code
+        required: true
+        default: '276'
+        type: string
+      draft:
+        description: Keep the release as a draft for final verification
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enhance-release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.repository == 'canxin121/InspirationEnhance' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Validate release request and credentials
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          SOURCE_KEY: ${{ secrets.SOURCE_DEPLOY_KEY }}
+          SIGNING_STORE: ${{ secrets.ENHANCE_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ENHANCE_KEYSTORE_PASSWORD }}
+          SIGNING_ALIAS: ${{ secrets.ENHANCE_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ENHANCE_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9][A-Za-z0-9.-]*)?$ ]]
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$VERSION_CODE" =~ ^[1-9][0-9]*$ ]]
+          test -n "$SOURCE_KEY"
+          test -n "$SIGNING_STORE"
+          test -n "$STORE_PASSWORD"
+          test -n "$SIGNING_ALIAS"
+          test -n "$KEY_PASSWORD"
+
+      - name: Checkout public release repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout the exact private source commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          repository: canxin121/ColorOSFlymeEnhance
+          ref: ${{ inputs.source_commit }}
+          ssh-key: ${{ secrets.SOURCE_DEPLOY_KEY }}
+          path: private-source
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Java 21
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@9fc6c4e9069bf8d3d10b2204b1fb8f6ef7065407 # v3
+        with:
+          packages: platform-tools
+
+      - name: Install build SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
+
+      - name: Prepare signing material
+        shell: bash
+        env:
+          SIGNING_STORE: ${{ secrets.ENHANCE_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf '%s' "$SIGNING_STORE" | base64 --decode > "$RUNNER_TEMP/enhance-signing.keystore"
+          echo "ENHANCE_KEYSTORE_PATH=$RUNNER_TEMP/enhance-signing.keystore" >> "$GITHUB_ENV"
+
+      - name: Test, build and inspect the release
+        working-directory: private-source
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+          SOURCE_COMMIT: ${{ inputs.source_commit }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          ENHANCE_KEYSTORE_PASSWORD: ${{ secrets.ENHANCE_KEYSTORE_PASSWORD }}
+          ENHANCE_KEY_ALIAS: ${{ secrets.ENHANCE_KEY_ALIAS }}
+          ENHANCE_KEY_PASSWORD: ${{ secrets.ENHANCE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          chmod +x gradlew
+          # Private sources, compiler diagnostics and Gradle caches are not uploaded.
+          if ! ./gradlew :app:testDebugUnitTest :app:assembleRelease :app:lintDebug --no-daemon --max-workers=2 > "$RUNNER_TEMP/enhance-build.log" 2>&1; then
+            echo "::error::Source tests, compilation or lint failed. No release was published."
+            exit 1
+          fi
+          if ! python3 tools/package_public_release.py \
+            --apk app/build/outputs/apk/release/app-release.apk \
+            --build-tools "$ANDROID_HOME/build-tools/37.0.0" \
+            --tag "$RELEASE_TAG" --version-code "$VERSION_CODE" \
+            --notes "docs/releases/${RELEASE_TAG#v}.md" \
+            --output "$GITHUB_WORKSPACE/release-output" > "$RUNNER_TEMP/enhance-inspection.log" 2>&1; then
+            echo "::error::APK or release metadata verification failed. No release was published."
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/enhance-inspection.log"
+
+      - name: Remove signing material
+        if: always()
+        shell: bash
+        run: rm -f "$RUNNER_TEMP/enhance-signing.keystore"
+
+      - name: Upload validated release assets
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-output/
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download this run's validated assets
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: release-output
+
+      - name: Recheck assets and create the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          VERSION_CODE: ${{ inputs.version_code }}
+          KEEP_DRAFT: ${{ inputs.draft }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, urllib.parse
+          out=Path('release-output')
+          assert {p.name for p in out.iterdir()}=={'灵感增强.apk','update.json','SHA256SUMS.txt','release-notes.md','app-icon.svg'}
+          data=json.loads((out/'update.json').read_text())
+          assert data['schema']==1 and data['applicationId']=='dev.coloros.flymeenhance'
+          assert data['versionCode']==int(os.environ['VERSION_CODE'])
+          assert data['versionName']==os.environ['RELEASE_TAG'][1:]
+          assert data['signingCertificateSha256']=='4579664dd7ed3d9c1114edf7cc2026f882b503ac5049cdb1b35263beea7b7a38'
+          assert data['apkSha256']==hashlib.sha256((out/'灵感增强.apk').read_bytes()).hexdigest()
+          assert data['apkSize']==(out/'灵感增强.apk').stat().st_size
+          assert data['apkUrl']==f"https://github.com/{os.environ['GH_REPO']}/releases/download/{os.environ['RELEASE_TAG']}/{urllib.parse.quote('灵感增强.apk')}"
+          assert data['releaseUrl']==f"https://github.com/{os.environ['GH_REPO']}/releases/tag/{os.environ['RELEASE_TAG']}"
+          for row in (out/'SHA256SUMS.txt').read_text().splitlines():
+            digest,name=row.split('  ',1)
+            assert name in {'灵感增强.apk','update.json','app-icon.svg'}
+            assert hashlib.sha256((out/name).read_bytes()).hexdigest()==digest
+          PY
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "::error::This version already exists; published versions are not overwritten."
+            exit 1
+          fi
+          options=()
+          if [ "$KEEP_DRAFT" = 'true' ]; then options+=(--draft); fi
+          gh release create "$RELEASE_TAG" \
+            --target "$GITHUB_SHA" --title "灵感增强 ${RELEASE_TAG#v}" \
+            --notes-file release-output/release-notes.md "${options[@]}" \
+            'release-output/灵感增强.apk' release-output/update.json \
+            release-output/SHA256SUMS.txt release-output/app-icon.svg
