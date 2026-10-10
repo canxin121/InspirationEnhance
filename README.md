@@ -1,7 +1,5 @@
 <div align="center">
 
-<img src="https://github.com/canxin121/InspirationEnhance/releases/download/v0.1.0/app-icon.svg" width="88" height="88" alt="灵感增强图标">
-
 <h1>灵感增强</h1>
 
 <p><strong>为 ColorOS 添一份顺手</strong></p>
