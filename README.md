@@ -16,9 +16,9 @@
 
 [**下载最新安装包**](https://github.com/canxin121/InspirationEnhance/releases/latest/download/InspirationEnhance.apk)
 
-> **使用条件**：ColorOS 15 / 16 · Root（如 Magisk、KernelSU）· LSPosed。
+> **使用条件**：ColorOS 15 / 16，以及一加 15 国行 ColorOS 17.0.0.102 / 17.0.0.105 · Root（如 Magisk、KernelSU）· LSPosed。
 >
-> 功能可用性因机型、系统和应用版本而异。
+> 功能可用性因机型、系统和应用版本而异。部分旧版系统继续使用原生识屏；ColorOS 17 已完成系统原包与自动化检查，仍需真机反馈。
 
 ## 功能一览
 
