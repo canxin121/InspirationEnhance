@@ -16,7 +16,7 @@
 
 </div>
 
-[**下载最新安装包**](https://github.com/canxin121/InspirationEnhance/releases/latest/download/%E7%81%B5%E6%84%9F%E5%A2%9E%E5%BC%BA.apk)
+[**下载最新安装包**](https://github.com/canxin121/InspirationEnhance/releases/latest/download/InspirationEnhance.apk)
 
 > **使用条件**：ColorOS 15 / 16 · Root（如 Magisk、KernelSU）· LSPosed。
 >

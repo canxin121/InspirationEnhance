@@ -172,29 +172,45 @@ jobs:
           from pathlib import Path
           import hashlib, json, os, urllib.parse
           out=Path('release-output')
-          assert {p.name for p in out.iterdir()}=={'灵感增强.apk','update.json','SHA256SUMS.txt','release-notes.md','app-icon.svg'}
+          assert {p.name for p in out.iterdir()}=={'InspirationEnhance.apk','update.json','SHA256SUMS.txt','release-notes.md','app-icon.svg'}
           data=json.loads((out/'update.json').read_text())
           assert data['schema']==1 and data['applicationId']=='dev.coloros.flymeenhance'
           assert data['versionCode']==int(os.environ['VERSION_CODE'])
           assert data['versionName']==os.environ['RELEASE_TAG'][1:]
           assert data['signingCertificateSha256']=='4579664dd7ed3d9c1114edf7cc2026f882b503ac5049cdb1b35263beea7b7a38'
-          assert data['apkSha256']==hashlib.sha256((out/'灵感增强.apk').read_bytes()).hexdigest()
-          assert data['apkSize']==(out/'灵感增强.apk').stat().st_size
-          assert data['apkUrl']==f"https://github.com/{os.environ['GH_REPO']}/releases/download/{os.environ['RELEASE_TAG']}/{urllib.parse.quote('灵感增强.apk')}"
+          assert data['apkSha256']==hashlib.sha256((out/'InspirationEnhance.apk').read_bytes()).hexdigest()
+          assert data['apkSize']==(out/'InspirationEnhance.apk').stat().st_size
+          assert data['apkUrl']==f"https://github.com/{os.environ['GH_REPO']}/releases/download/{os.environ['RELEASE_TAG']}/InspirationEnhance.apk"
           assert data['releaseUrl']==f"https://github.com/{os.environ['GH_REPO']}/releases/tag/{os.environ['RELEASE_TAG']}"
           for row in (out/'SHA256SUMS.txt').read_text().splitlines():
             digest,name=row.split('  ',1)
-            assert name in {'灵感增强.apk','update.json','app-icon.svg'}
+            assert name in {'InspirationEnhance.apk','update.json','app-icon.svg'}
             assert hashlib.sha256((out/name).read_bytes()).hexdigest()==digest
           PY
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             echo "::error::This version already exists; published versions are not overwritten."
             exit 1
           fi
-          options=()
-          if [ "$KEEP_DRAFT" = 'true' ]; then options+=(--draft); fi
           gh release create "$RELEASE_TAG" \
             --target "$GITHUB_SHA" --title "灵感增强 ${RELEASE_TAG#v}" \
-            --notes-file release-output/release-notes.md "${options[@]}" \
-            'release-output/灵感增强.apk' release-output/update.json \
+            --draft --notes-file release-output/release-notes.md \
+            'release-output/InspirationEnhance.apk#灵感增强.apk' release-output/update.json \
             release-output/SHA256SUMS.txt release-output/app-icon.svg
+          # GitHub may sanitize uploaded names. Verify the stored assets before
+          # making this release visible to the app's updater.
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os, subprocess
+          out=Path('release-output')
+          release=json.loads(subprocess.check_output(['gh','release','view',os.environ['RELEASE_TAG'],'--json','isDraft,assets'],text=True))
+          assert release['isDraft'] is True
+          assets={asset['name']:asset for asset in release['assets']}
+          assert set(assets)=={'InspirationEnhance.apk','update.json','SHA256SUMS.txt','app-icon.svg'}
+          for name,asset in assets.items():
+            assert asset['size']==(out/name).stat().st_size
+            assert asset['digest']=='sha256:'+hashlib.sha256((out/name).read_bytes()).hexdigest()
+          assert assets['InspirationEnhance.apk']['label']=='灵感增强.apk'
+          PY
+          if [ "$KEEP_DRAFT" != 'true' ]; then
+            gh release edit "$RELEASE_TAG" --draft=false --latest
+          fi
