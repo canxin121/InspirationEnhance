@@ -6,7 +6,7 @@ on:
       tag:
         description: Release tag
         required: true
-        default: v0.1.1
+        default: v0.1.2
         type: string
       source_commit:
         description: Full 40-character commit from the private source repository
@@ -15,7 +15,7 @@ on:
       version_code:
         description: Expected Android installation version code
         required: true
-        default: '279'
+        default: '280'
         type: string
       draft:
         description: Keep the release as a draft for final verification
